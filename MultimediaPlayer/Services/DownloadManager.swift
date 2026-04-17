@@ -1,17 +1,17 @@
 import UIKit
 import AVFoundation
 
-final class DownloadService: NSObject {
+final class DownloadManager: NSObject {
 
-    static let shared = DownloadService()
+    static let shared = DownloadManager()
 
     // Notification names (userInfo key: "id")
-    static let progressNotification = Notification.Name("DownloadService.progress")
-    static let completionNotification = Notification.Name("DownloadService.completion")
-    static let failureNotification = Notification.Name("DownloadService.failure")
+    static let progressNotification = Notification.Name("DownloadManager.progress")
+    static let completionNotification = Notification.Name("DownloadManager.completion")
+    static let failureNotification = Notification.Name("DownloadManager.failure")
 
     private static let sessionIdentifier = "com.arthur.MultimediaPlayer.download"
-    private static let persistenceKey = "DownloadService.completedItems"
+    private static let persistenceKey = "DownloadManager.completedItems"
 
     private var session: AVAssetDownloadURLSession!
     private var taskForID: [String: AVAssetDownloadTask] = [:]
@@ -105,7 +105,7 @@ final class DownloadService: NSObject {
 
 // MARK: - AVAssetDownloadDelegate
 
-extension DownloadService: AVAssetDownloadDelegate {
+extension DownloadManager: AVAssetDownloadDelegate {
 
     func urlSession(
         _ session: URLSession,
@@ -146,7 +146,7 @@ extension DownloadService: AVAssetDownloadDelegate {
         taskForID.removeValue(forKey: id)
 
         persistCompletedItem(id: id, localURL: location)
-        NotificationService.shared.scheduleDownloadCompletion(title: items[index].title)
+        NotificationManager.shared.scheduleDownloadCompletion(title: items[index].title)
 
         NotificationCenter.default.post(
             name: Self.completionNotification,

@@ -1,7 +1,7 @@
 import UserNotifications
 
-final class NotificationService {
-    static let shared = NotificationService()
+final class NotificationManager {
+    static let shared = NotificationManager()
     private init() {}
 
     func requestPermission() {

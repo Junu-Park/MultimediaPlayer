@@ -29,7 +29,7 @@ final class DownloadListViewController: UITableViewController {
         tableView.rowHeight = 80
         tableView.allowsSelection = false
 
-        catalog.forEach { DownloadService.shared.register($0) }
+        catalog.forEach { DownloadManager.shared.register($0) }
         setupObservers()
     }
 
@@ -40,9 +40,9 @@ final class DownloadListViewController: UITableViewController {
     // MARK: - Observers
 
     private func setupObservers() {
-        [DownloadService.progressNotification,
-         DownloadService.completionNotification,
-         DownloadService.failureNotification].forEach {
+        [DownloadManager.progressNotification,
+         DownloadManager.completionNotification,
+         DownloadManager.failureNotification].forEach {
             NotificationCenter.default.addObserver(
                 self, selector: #selector(handleDownloadNotification(_:)), name: $0, object: nil
             )
@@ -51,19 +51,19 @@ final class DownloadListViewController: UITableViewController {
 
     @objc private func handleDownloadNotification(_ notification: Notification) {
         guard let id = notification.userInfo?["id"] as? String,
-              let index = DownloadService.shared.items.firstIndex(where: { $0.id == id }) else { return }
+              let index = DownloadManager.shared.items.firstIndex(where: { $0.id == id }) else { return }
         tableView.reloadRows(at: [IndexPath(row: index, section: 0)], with: .none)
     }
 
     // MARK: - TableView DataSource
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        DownloadService.shared.items.count
+        DownloadManager.shared.items.count
     }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: DownloadCell.reuseID, for: indexPath) as! DownloadCell
-        let item = DownloadService.shared.items[indexPath.row]
+        let item = DownloadManager.shared.items[indexPath.row]
         cell.configure(with: item)
         cell.onAction = { [weak self] in self?.handleAction(for: item) }
         cell.onPlay = { [weak self] in self?.play(item: item) }
@@ -75,9 +75,9 @@ final class DownloadListViewController: UITableViewController {
     private func handleAction(for item: DownloadItem) {
         switch item.state {
         case .idle, .failed:
-            DownloadService.shared.download(id: item.id)
+            DownloadManager.shared.download(id: item.id)
         case .downloading:
-            DownloadService.shared.cancel(id: item.id)
+            DownloadManager.shared.cancel(id: item.id)
         case .completed:
             break
         }
@@ -96,7 +96,7 @@ final class DownloadListViewController: UITableViewController {
     }
 
     private func reloadRow(id: String) {
-        guard let index = DownloadService.shared.items.firstIndex(where: { $0.id == id }) else { return }
+        guard let index = DownloadManager.shared.items.firstIndex(where: { $0.id == id }) else { return }
         tableView.reloadRows(at: [IndexPath(row: index, section: 0)], with: .none)
     }
 }

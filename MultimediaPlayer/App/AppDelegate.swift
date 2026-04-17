@@ -11,7 +11,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         setupAudioSession()
-        NotificationService.shared.requestPermission()
+        NotificationManager.shared.requestPermission()
         return true
     }
 
