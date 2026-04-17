@@ -167,7 +167,7 @@ final class PlayerControlView: UIView {
         titleLabel.snp.makeConstraints {
             $0.centerY.equalTo(closeButton)
             $0.leading.equalTo(closeButton.snp.trailing).offset(8)
-            $0.trailing.equalToSuperview().inset(56)
+            $0.trailing.equalTo(pipButton.snp.leading).offset(-8)
         }
 
         playPauseButton.snp.makeConstraints {
@@ -188,19 +188,19 @@ final class PlayerControlView: UIView {
         }
 
         routePickerView.snp.makeConstraints {
-            $0.bottom.equalTo(safeAreaLayoutGuide).inset(12)
+            $0.centerY.equalTo(closeButton)
             $0.trailing.equalToSuperview().inset(16)
             $0.size.equalTo(32)
         }
 
         pipButton.snp.makeConstraints {
-            $0.centerY.equalTo(routePickerView)
+            $0.centerY.equalTo(closeButton)
             $0.trailing.equalTo(routePickerView.snp.leading).offset(-8)
             $0.size.equalTo(32)
         }
 
         seekSlider.snp.makeConstraints {
-            $0.bottom.equalTo(routePickerView.snp.top).offset(-12)
+            $0.bottom.equalTo(safeAreaLayoutGuide).inset(44)
             $0.leading.equalTo(currentTimeLabel.snp.trailing).offset(8)
             $0.trailing.equalTo(durationLabel.snp.leading).offset(-8)
         }
@@ -212,7 +212,7 @@ final class PlayerControlView: UIView {
 
         durationLabel.snp.makeConstraints {
             $0.centerY.equalTo(seekSlider)
-            $0.trailing.equalTo(pipButton.snp.leading).offset(-8)
+            $0.trailing.equalToSuperview().inset(16)
         }
 
         liveBadge.snp.makeConstraints {
