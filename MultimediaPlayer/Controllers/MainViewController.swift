@@ -52,17 +52,25 @@ class MainViewController: UITableViewController {
             Row(
                 title: "VOD 재생 (다시듣기)",
                 subtitle: "오디오 HLS 스트림",
-                action: .notImplemented("라디오 기능은 다음 파트에서 구현 예정입니다.")
+                action: .playAudio(MediaItem(
+                    title: "VOD 다시듣기",
+                    url: URL(string: "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8")!,
+                    type: .vodAudio
+                ))
             ),
             Row(
                 title: "실시간 청취",
                 subtitle: "라이브 오디오 HLS",
-                action: .notImplemented("라디오 기능은 다음 파트에서 구현 예정입니다.")
+                action: .playAudio(MediaItem(
+                    title: "실시간 청취",
+                    url: URL(string: "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8")!,
+                    type: .liveAudio
+                ))
             ),
             Row(
                 title: "다운로드",
                 subtitle: "오디오 오프라인 저장 후 재생",
-                action: .notImplemented("라디오 기능은 다음 파트에서 구현 예정입니다.")
+                action: .notImplemented("다운로드 기능은 다음 파트에서 구현 예정입니다.")
             ),
         ]),
         Section(title: "웹뷰", rows: [
@@ -115,9 +123,8 @@ class MainViewController: UITableViewController {
         switch sections[indexPath.section].rows[indexPath.row].action {
         case .playVideo(let item):
             present(VideoPlayerViewController(mediaItem: item), animated: true)
-        case .playAudio:
-            // TODO: AudioPlayerViewController
-            break
+        case .playAudio(let item):
+            navigationController?.pushViewController(AudioPlayerViewController(mediaItem: item), animated: true)
         case .openWebView:
             // TODO: WebViewController
             break

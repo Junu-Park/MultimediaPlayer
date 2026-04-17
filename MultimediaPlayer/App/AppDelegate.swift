@@ -1,4 +1,5 @@
 import UIKit
+import AVFoundation
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -7,7 +8,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
+        setupAudioSession()
         return true
+    }
+
+    private func setupAudioSession() {
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
     }
 
     func application(
