@@ -9,6 +9,7 @@ final class DownloadManager: NSObject {
     static let progressNotification = Notification.Name("DownloadManager.progress")
     static let completionNotification = Notification.Name("DownloadManager.completion")
     static let failureNotification = Notification.Name("DownloadManager.failure")
+    static let deletionNotification = Notification.Name("DownloadManager.deletion")
 
     private static let sessionIdentifier = "com.arthur.MultimediaPlayer.download"
     private static let persistenceKey = "DownloadManager.completedItems"
@@ -82,6 +83,27 @@ final class DownloadManager: NSObject {
         items.first { $0.id == id }?.localURL
     }
 
+    func delete(id: String) {
+        guard let index = itemIndex(id: id),
+              items[index].state == .completed else { return }
+
+        if let localURL = items[index].localURL {
+            try? FileManager.default.removeItem(at: localURL)
+        }
+
+        items[index].localURL = nil
+        items[index].state = .idle
+        items[index].progress = 0
+
+        removePersistedItem(id: id)
+
+        NotificationCenter.default.post(
+            name: Self.deletionNotification,
+            object: nil,
+            userInfo: ["id": id]
+        )
+    }
+
     // MARK: - Persistence
 
     private var completedPaths: [String: String] {
@@ -91,6 +113,12 @@ final class DownloadManager: NSObject {
     private func persistCompletedItem(id: String, localURL: URL) {
         var paths = completedPaths
         paths[id] = localURL.path
+        UserDefaults.standard.set(paths, forKey: Self.persistenceKey)
+    }
+
+    private func removePersistedItem(id: String) {
+        var paths = completedPaths
+        paths.removeValue(forKey: id)
         UserDefaults.standard.set(paths, forKey: Self.persistenceKey)
     }
 

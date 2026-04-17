@@ -42,7 +42,8 @@ final class DownloadListViewController: UITableViewController {
     private func setupObservers() {
         [DownloadManager.progressNotification,
          DownloadManager.completionNotification,
-         DownloadManager.failureNotification].forEach {
+         DownloadManager.failureNotification,
+         DownloadManager.deletionNotification].forEach {
             NotificationCenter.default.addObserver(
                 self, selector: #selector(handleDownloadNotification(_:)), name: $0, object: nil
             )
@@ -68,6 +69,23 @@ final class DownloadListViewController: UITableViewController {
         cell.onAction = { [weak self] in self?.handleAction(for: item) }
         cell.onPlay = { [weak self] in self?.play(item: item) }
         return cell
+    }
+
+    // MARK: - Swipe Actions
+
+    override func tableView(
+        _ tableView: UITableView,
+        trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath
+    ) -> UISwipeActionsConfiguration? {
+        let item = DownloadManager.shared.items[indexPath.row]
+        guard item.state == .completed else { return nil }
+
+        let delete = UIContextualAction(style: .destructive, title: "삭제") { [weak self] _, _, completion in
+            DownloadManager.shared.delete(id: item.id)
+            completion(true)
+            self?.reloadRow(id: item.id)
+        }
+        return UISwipeActionsConfiguration(actions: [delete])
     }
 
     // MARK: - Actions
