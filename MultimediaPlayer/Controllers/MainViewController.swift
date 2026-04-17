@@ -12,7 +12,6 @@ class MainViewController: UITableViewController {
         enum Action {
             case playVideo(MediaItem)
             case playAudio(MediaItem)
-            case openWebView
             case openDownloadList
             case notImplemented(String)
         }
@@ -74,13 +73,6 @@ class MainViewController: UITableViewController {
                 action: .openDownloadList
             ),
         ]),
-        Section(title: "웹뷰", rows: [
-            Row(
-                title: "웹뷰 열기",
-                subtitle: "JS Bridge 포함",
-                action: .notImplemented("웹뷰 기능은 다음 파트에서 구현 예정입니다.")
-            ),
-        ]),
     ]
 
     // MARK: - Lifecycle
@@ -126,9 +118,6 @@ class MainViewController: UITableViewController {
             present(VideoPlayerViewController(mediaItem: item), animated: true)
         case .playAudio(let item):
             navigationController?.pushViewController(AudioPlayerViewController(mediaItem: item), animated: true)
-        case .openWebView:
-            // TODO: WebViewController
-            break
         case .openDownloadList:
             navigationController?.pushViewController(DownloadListViewController(), animated: true)
         case .notImplemented(let message):
