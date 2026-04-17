@@ -13,6 +13,7 @@ class MainViewController: UITableViewController {
             case playVideo(MediaItem)
             case playAudio(MediaItem)
             case openWebView
+            case openDownloadList
             case notImplemented(String)
         }
     }
@@ -45,7 +46,7 @@ class MainViewController: UITableViewController {
             Row(
                 title: "다운로드",
                 subtitle: "오프라인 저장 후 재생",
-                action: .notImplemented("다운로드 기능은 다음 파트에서 구현 예정입니다.")
+                action: .openDownloadList
             ),
         ]),
         Section(title: "라디오", rows: [
@@ -70,7 +71,7 @@ class MainViewController: UITableViewController {
             Row(
                 title: "다운로드",
                 subtitle: "오디오 오프라인 저장 후 재생",
-                action: .notImplemented("다운로드 기능은 다음 파트에서 구현 예정입니다.")
+                action: .openDownloadList
             ),
         ]),
         Section(title: "웹뷰", rows: [
@@ -128,6 +129,8 @@ class MainViewController: UITableViewController {
         case .openWebView:
             // TODO: WebViewController
             break
+        case .openDownloadList:
+            navigationController?.pushViewController(DownloadListViewController(), animated: true)
         case .notImplemented(let message):
             let alert = UIAlertController(title: "준비 중", message: message, preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "확인", style: .default))

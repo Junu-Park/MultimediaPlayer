@@ -4,12 +4,23 @@ import AVFoundation
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
+    var backgroundSessionCompletionHandler: (() -> Void)?
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         setupAudioSession()
+        NotificationService.shared.requestPermission()
         return true
+    }
+
+    func application(
+        _ application: UIApplication,
+        handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping () -> Void
+    ) {
+        backgroundSessionCompletionHandler = completionHandler
     }
 
     private func setupAudioSession() {
