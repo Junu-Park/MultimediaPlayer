@@ -166,7 +166,8 @@ extension DownloadManager: AVAssetDownloadDelegate {
         didFinishDownloadingTo location: URL
     ) {
         guard let id = assetDownloadTask.taskDescription,
-              let index = itemIndex(id: id) else { return }
+              let index = itemIndex(id: id),
+              items[index].state == .downloading else { return }
 
         items[index].localURL = location
         items[index].state = .completed
