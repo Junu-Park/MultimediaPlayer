@@ -1,7 +1,7 @@
 # MultimediaPlayer
 
 AVFoundation 기반 iOS 멀티미디어 플레이어 클론 코딩 프로젝트.  
-UIKit MVC 아키텍처의 장단점을 직접 체험하는 것을 목적으로 구현했습니다.
+실무에서 SwiftUI + Clean Architecture 기반 멀티미디어 앱을 개발한 경험을 바탕으로, UIKit MVC 환경에서 동일한 미디어 기능을 구현하며 아키텍처별 차이를 비교하기 위해 진행했습니다.
 
 ---
 
@@ -22,9 +22,9 @@ AUDIO_VOD_URL = https:$()/your-audio-vod-url
 
 ---
 
-## 🎬 구현 기능
+## ✨ 구현 기능
 
-### 비디오 플레이어
+### 🎬 비디오 플레이어
 - HLS VOD 재생 (seek, 전체 재생시간 표시)
 - 라이브 HLS 재생 (LIVE 뱃지, seek 비활성화)
 - 커스텀 컨트롤 오버레이 (3초 자동 숨김, 탭 토글)
@@ -89,7 +89,13 @@ Secret.xcconfig.example   # 설정 템플릿
 
 ## 💬 회고
 
-### Massive View Controller가 발생한 지점
+### MVC의 장점
+
+**UIKit과의 높은 친화성**이 가장 큰 이점이었습니다. UIKit 자체가 MVC를 전제로 설계되어 있어, `UIViewController`가 화면 생명주기와 UI 이벤트를 모두 담당하는 구조가 자연스럽게 맞아떨어졌습니다. 별도의 바인딩 레이어 없이도 빠르게 기능을 구현할 수 있었고, 코드 흐름을 한 파일 안에서 위에서 아래로 읽을 수 있어 초기 구현 속도가 빨랐습니다.
+
+또한 `PlayerControlViewDelegate`처럼 프로토콜을 활용해 View와 Controller 사이의 역할을 명확하게 나눌 수 있었고, `DownloadManager` 같은 싱글턴 서비스 레이어를 두어 Controller가 직접 네트워크나 파일 I/O를 다루지 않도록 구조화하는 것도 어렵지 않았습니다.
+
+### MVC의 단점 — Massive View Controller
 
 **VideoPlayerViewController**와 **AudioPlayerViewController**가 대표적입니다.
 
@@ -100,20 +106,14 @@ Secret.xcconfig.example   # 설정 템플릿
 - MediaPlayer 연동 (nowPlayingInfo 갱신, RemoteCommand 등록)
 - 오디오 세션 관리 (인터럽션, 라우트 변경 처리)
 
-결과적으로 `AudioPlayerViewController`는 300줄, `VideoPlayerViewController`는 400줄에 달하며, 한 곳을 수정할 때 다른 역할에 의도치 않은 영향을 주는 일이 반복되었습니다.
+결과적으로 `AudioPlayerViewController`는 500줄 이상, `VideoPlayerViewController`는 300줄 이상에 달하며, 한 곳을 수정할 때 다른 역할에 의도치 않은 영향을 주는 일이 반복되었습니다.
 
-### ViewModel 분리가 필요했던 케이스
-
-**재생 상태와 UI 상태의 이중 관리**가 가장 큰 문제였습니다.
-
-예를 들어 재생속도를 변경하면:
+**재생 상태와 UI 상태의 이중 관리**도 문제였습니다. 예를 들어 재생속도를 변경하면:
 1. `player.rate` 업데이트
 2. `UISegmentedControl` 선택 인덱스 업데이트
 3. `nowPlayingInfo` 갱신
 
-이 세 가지가 ViewController 안에서 직접 연결되어 있어, 새로운 진입점(예: RemoteCommand에서 속도 변경)이 생길 때마다 같은 로직을 여러 곳에 흩어서 작성해야 했습니다. ViewModel에 `playbackRate` 프로퍼티 하나를 두고 `didSet`으로 세 가지를 한꺼번에 처리했다면 훨씬 단순했을 것입니다.
-
-**DownloadManager의 상태를 ViewController가 직접 polling**하는 것도 문제였습니다. NotificationCenter로 해결했지만, 상태 변환 로직이 ViewController와 Manager에 분산되어 있어 흐름 파악이 어려웠습니다.
+이 세 가지가 ViewController 안에서 직접 연결되어 있어, 새로운 진입점(예: RemoteCommand에서 속도 변경)이 생길 때마다 같은 로직을 여러 곳에 흩어서 작성해야 했습니다.
 
 ### MVVM 전환 시 어떤 부분부터 할지
 
@@ -127,3 +127,5 @@ Secret.xcconfig.example   # 설정 템플릿
 
 **3단계 — DownloadViewModel 도입**  
 `DownloadManager`의 NotificationCenter 이벤트를 ViewModel이 수신하고, 가공된 `[DownloadCellModel]` 배열을 바인딩으로 노출합니다. ViewController는 배열을 받아 `reloadData()`만 호출하면 됩니다.
+
+이 프로젝트를 통해 MVC의 한계를 직접 체감했으며, 실무에서 MVVM + Clean Architecture를 적용했을 때의 이점을 더 깊이 이해할 수 있었습니다.
