@@ -29,7 +29,7 @@ class MainViewController: UITableViewController {
                 subtitle: "정적 HLS 스트림",
                 action: .playVideo(MediaItem(
                     title: "VOD 재생",
-                    url: URL(string: "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8")!,
+                    url: URL(string: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8")!,
                     type: .vodVideo
                 ))
             ),

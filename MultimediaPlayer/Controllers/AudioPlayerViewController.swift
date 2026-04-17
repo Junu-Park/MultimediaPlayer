@@ -354,6 +354,11 @@ final class AudioPlayerViewController: UIViewController {
             self?.player?.pause()
             return .success
         }
+        center.togglePlayPauseCommand.addTarget { [weak self] _ in
+            guard let self, let player = self.player else { return .commandFailed }
+            player.timeControlStatus == .playing ? player.pause() : player.play()
+            return .success
+        }
         center.skipBackwardCommand.preferredIntervals = [15]
         center.skipBackwardCommand.addTarget { [weak self] _ in
             self?.skipBack()
@@ -364,10 +369,13 @@ final class AudioPlayerViewController: UIViewController {
             self?.skipForward()
             return .success
         }
-        center.changePlaybackPositionCommand.isEnabled = !isLive
         center.changePlaybackPositionCommand.addTarget { [weak self] event in
-            guard let event = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
-            self?.player?.seek(to: CMTime(seconds: event.positionTime, preferredTimescale: 1))
+            guard let self,
+                  let event = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
+            let target = CMTime(seconds: event.positionTime, preferredTimescale: 1)
+            self.player?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { _ in
+                self.player?.play()
+            }
             return .success
         }
 
@@ -375,12 +383,26 @@ final class AudioPlayerViewController: UIViewController {
     }
 
     private func updateNowPlayingInfo() {
-        var info: [String: Any] = [MPMediaItemPropertyTitle: mediaItem.title]
+        let rate = player?.rate ?? 0
+        var info: [String: Any] = [
+            MPMediaItemPropertyTitle: mediaItem.title,
+            MPNowPlayingInfoPropertyPlaybackRate: rate,
+            MPNowPlayingInfoPropertyDefaultPlaybackRate: 1.0,
+        ]
 
         if let duration = player?.currentItem?.duration, duration.isNumeric {
             info[MPMediaItemPropertyPlaybackDuration] = duration.seconds
         }
-        info[MPNowPlayingInfoPropertyPlaybackRate] = player?.rate ?? 0
+        if let currentTime = player?.currentTime(), currentTime.isNumeric {
+            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime.seconds
+        }
+
+        let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 300, height: 300)) { _ in
+            let cfg = UIImage.SymbolConfiguration(pointSize: 120, weight: .thin)
+            return UIImage(systemName: "music.note", withConfiguration: cfg) ?? UIImage()
+        }
+        info[MPMediaItemPropertyArtwork] = artwork
+
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 
@@ -396,6 +418,7 @@ final class AudioPlayerViewController: UIViewController {
         let center = MPRemoteCommandCenter.shared()
         center.playCommand.removeTarget(nil)
         center.pauseCommand.removeTarget(nil)
+        center.togglePlayPauseCommand.removeTarget(nil)
         center.skipBackwardCommand.removeTarget(nil)
         center.skipForwardCommand.removeTarget(nil)
         center.changePlaybackPositionCommand.removeTarget(nil)
@@ -452,6 +475,7 @@ final class AudioPlayerViewController: UIViewController {
     @objc private func playerItemDidFinish() {
         player?.seek(to: .zero)
         updatePlayPauseButton(isPlaying: false)
+        updateNowPlayingInfo()
     }
 
     private func showError(_ error: Error?) {
@@ -500,6 +524,7 @@ final class AudioPlayerViewController: UIViewController {
     @objc private func speedChanged() {
         let speed = speeds[speedControl.selectedSegmentIndex]
         player?.rate = speed
+        updateNowPlayingInfo()
     }
 
     @objc private func sliderTouchBegan() {

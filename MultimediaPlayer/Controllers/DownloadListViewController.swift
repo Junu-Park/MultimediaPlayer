@@ -9,7 +9,7 @@ final class DownloadListViewController: UITableViewController {
         DownloadItem(
             id: "video-vod",
             title: "비디오 VOD 샘플",
-            sourceURL: URL(string: "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8")!,
+            sourceURL: URL(string: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8")!,
             mediaType: .vodVideo
         ),
         DownloadItem(
