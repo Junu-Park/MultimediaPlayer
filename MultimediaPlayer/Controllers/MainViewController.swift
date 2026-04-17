@@ -22,14 +22,14 @@ class MainViewController: UITableViewController {
         let rows: [Row]
     }
 
-    private let sections: [Section] = [
+    private lazy var sections: [Section] = [
         Section(title: "비디오", rows: [
             Row(
                 title: "VOD 재생",
                 subtitle: "정적 HLS 스트림",
                 action: .playVideo(MediaItem(
                     title: "VOD 재생",
-                    url: URL(string: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8")!,
+                    url: Config.videoVODURL,
                     type: .vodVideo
                 ))
             ),
@@ -50,7 +50,7 @@ class MainViewController: UITableViewController {
                 subtitle: "오디오 HLS 스트림",
                 action: .playAudio(MediaItem(
                     title: "VOD 다시듣기",
-                    url: URL(string: "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8")!,
+                    url: Config.audioVODURL,
                     type: .vodAudio
                 ))
             ),

@@ -6,5 +6,9 @@
 	<array>
 		<string>audio</string>
 	</array>
+	<key>VIDEO_VOD_URL</key>
+	<string>$(VIDEO_VOD_URL)</string>
+	<key>AUDIO_VOD_URL</key>
+	<string>$(AUDIO_VOD_URL)</string>
 </dict>
 </plist>
