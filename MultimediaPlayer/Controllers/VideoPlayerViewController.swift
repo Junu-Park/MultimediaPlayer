@@ -1,6 +1,7 @@
 import UIKit
 import AVFoundation
 import AVKit
+import MediaPlayer
 import SnapKit
 
 final class VideoPlayerViewController: UIViewController {
@@ -37,6 +38,7 @@ final class VideoPlayerViewController: UIViewController {
     deinit {
         removeObservers()
         NotificationCenter.default.removeObserver(self)
+        clearNowPlaying()
     }
 
     // MARK: - Lifecycle
@@ -71,6 +73,7 @@ final class VideoPlayerViewController: UIViewController {
         playerLayer = layer
 
         setupObservers()
+        setupRemoteCommands()
         setupPIP()
         player?.play()
     }
@@ -82,7 +85,6 @@ final class VideoPlayerViewController: UIViewController {
             DispatchQueue.main.async { self?.handleStatus(item.status) }
         }
 
-        // Duration 변경 시 Live 여부 판별
         durationObserver = item.observe(\.duration, options: [.new]) { [weak self] _, _ in
             DispatchQueue.main.async { self?.updateLiveMode() }
         }
@@ -90,12 +92,14 @@ final class VideoPlayerViewController: UIViewController {
         timeControlObserver = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
             DispatchQueue.main.async {
                 self?.controlView.update(isPlaying: player.timeControlStatus == .playing)
+                self?.updateNowPlayingRate()
             }
         }
 
         let interval = CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
         timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             self?.updateProgress(time: time)
+            self?.updateNowPlayingTime(time: time)
         }
 
         NotificationCenter.default.addObserver(
@@ -145,12 +149,109 @@ final class VideoPlayerViewController: UIViewController {
         controlView.toggleVisibility()
     }
 
+    // MARK: - Remote Commands
+
+    private func setupRemoteCommands() {
+        let center = MPRemoteCommandCenter.shared()
+
+        center.playCommand.addTarget { [weak self] _ in
+            self?.player?.play()
+            return .success
+        }
+        center.pauseCommand.addTarget { [weak self] _ in
+            self?.player?.pause()
+            return .success
+        }
+        center.togglePlayPauseCommand.addTarget { [weak self] _ in
+            guard let self, let player = self.player else { return .commandFailed }
+            player.timeControlStatus == .playing ? player.pause() : player.play()
+            return .success
+        }
+        center.skipBackwardCommand.preferredIntervals = [15]
+        center.skipBackwardCommand.addTarget { [weak self] _ in
+            self?.skipBack()
+            return .success
+        }
+        center.skipForwardCommand.preferredIntervals = [15]
+        center.skipForwardCommand.addTarget { [weak self] _ in
+            self?.skipForward()
+            return .success
+        }
+        center.changePlaybackPositionCommand.addTarget { [weak self] event in
+            guard let self,
+                  let event = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
+            let target = CMTime(seconds: event.positionTime, preferredTimescale: 1)
+            self.player?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { _ in
+                self.player?.play()
+            }
+            return .success
+        }
+
+        updateNowPlayingInfo()
+    }
+
+    private func updateNowPlayingInfo() {
+        let rate = player?.rate ?? 0
+        var info: [String: Any] = [
+            MPMediaItemPropertyTitle: mediaItem.title,
+            MPNowPlayingInfoPropertyPlaybackRate: rate,
+            MPNowPlayingInfoPropertyDefaultPlaybackRate: 1.0,
+        ]
+
+        if let duration = player?.currentItem?.duration, duration.isNumeric {
+            info[MPMediaItemPropertyPlaybackDuration] = duration.seconds
+        }
+        if let currentTime = player?.currentTime(), currentTime.isNumeric {
+            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime.seconds
+        }
+
+        let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 300, height: 300)) { _ in
+            let cfg = UIImage.SymbolConfiguration(pointSize: 120, weight: .thin)
+            return UIImage(systemName: "play.rectangle", withConfiguration: cfg) ?? UIImage()
+        }
+        info[MPMediaItemPropertyArtwork] = artwork
+
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    private func updateNowPlayingTime(time: CMTime) {
+        guard var info = MPNowPlayingInfoCenter.default().nowPlayingInfo else { return }
+        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = time.seconds
+        info[MPNowPlayingInfoPropertyPlaybackRate] = player?.rate ?? 0
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    private func updateNowPlayingRate() {
+        guard var info = MPNowPlayingInfoCenter.default().nowPlayingInfo else { return }
+        info[MPNowPlayingInfoPropertyPlaybackRate] = player?.rate ?? 0
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    private func updateRemoteCommandAvailability() {
+        let live = isLive
+        MPRemoteCommandCenter.shared().changePlaybackPositionCommand.isEnabled = !live
+        MPRemoteCommandCenter.shared().skipBackwardCommand.isEnabled = !live
+        MPRemoteCommandCenter.shared().skipForwardCommand.isEnabled = !live
+    }
+
+    private func clearNowPlaying() {
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        let center = MPRemoteCommandCenter.shared()
+        center.playCommand.removeTarget(nil)
+        center.pauseCommand.removeTarget(nil)
+        center.togglePlayPauseCommand.removeTarget(nil)
+        center.skipBackwardCommand.removeTarget(nil)
+        center.skipForwardCommand.removeTarget(nil)
+        center.changePlaybackPositionCommand.removeTarget(nil)
+    }
+
     // MARK: - State
 
     private func handleStatus(_ status: AVPlayerItem.Status) {
         switch status {
         case .readyToPlay:
             updateLiveMode()
+            updateNowPlayingInfo()
         case .failed:
             showError(playerItem?.error)
         default:
@@ -160,6 +261,7 @@ final class VideoPlayerViewController: UIViewController {
 
     private func updateLiveMode() {
         controlView.update(isLive: isLive)
+        updateRemoteCommandAvailability()
     }
 
     private func updateProgress(time: CMTime) {
@@ -173,6 +275,7 @@ final class VideoPlayerViewController: UIViewController {
         player?.seek(to: .zero)
         controlView.update(isPlaying: false)
         controlView.show()
+        updateNowPlayingInfo()
     }
 
     private func showError(_ error: Error?) {
@@ -182,6 +285,26 @@ final class VideoPlayerViewController: UIViewController {
             self?.dismiss(animated: true)
         })
         present(alert, animated: true)
+    }
+
+    private func skipBack() {
+        guard let player = player else { return }
+        let target = CMTimeMaximum(
+            CMTimeSubtract(player.currentTime(), CMTime(seconds: 15, preferredTimescale: 1)),
+            .zero
+        )
+        player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+    }
+
+    private func skipForward() {
+        guard let player = player,
+              let duration = player.currentItem?.duration,
+              duration.isNumeric else { return }
+        let target = CMTimeMinimum(
+            CMTimeAdd(player.currentTime(), CMTime(seconds: 15, preferredTimescale: 1)),
+            duration
+        )
+        player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
     }
 }
 
@@ -198,25 +321,8 @@ extension VideoPlayerViewController: PlayerControlViewDelegate {
         }
     }
 
-    func controlViewDidTapSkipBack(_ view: PlayerControlView) {
-        guard let player = player else { return }
-        let target = CMTimeMaximum(
-            CMTimeSubtract(player.currentTime(), CMTime(seconds: 15, preferredTimescale: 1)),
-            .zero
-        )
-        player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-    }
-
-    func controlViewDidTapSkipForward(_ view: PlayerControlView) {
-        guard let player = player,
-              let duration = player.currentItem?.duration,
-              duration.isNumeric else { return }
-        let target = CMTimeMinimum(
-            CMTimeAdd(player.currentTime(), CMTime(seconds: 15, preferredTimescale: 1)),
-            duration
-        )
-        player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-    }
+    func controlViewDidTapSkipBack(_ view: PlayerControlView) { skipBack() }
+    func controlViewDidTapSkipForward(_ view: PlayerControlView) { skipForward() }
 
     func controlViewDidBeginSeeking(_ view: PlayerControlView) {
         player?.pause()
