@@ -36,11 +36,7 @@ class MainViewController: UITableViewController {
             Row(
                 title: "실시간 스트리밍",
                 subtitle: "라이브 HLS 스트림",
-                action: .playVideo(MediaItem(
-                    title: "실시간 스트리밍",
-                    url: URL(string: "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8")!,
-                    type: .liveVideo
-                ))
+                action: .notImplemented("사용 가능한 라이브 스트림 URL 확보 후 구현 예정입니다.")
             ),
             Row(
                 title: "다운로드",
@@ -61,11 +57,7 @@ class MainViewController: UITableViewController {
             Row(
                 title: "실시간 청취",
                 subtitle: "라이브 오디오 HLS",
-                action: .playAudio(MediaItem(
-                    title: "실시간 청취",
-                    url: URL(string: "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8")!,
-                    type: .liveAudio
-                ))
+                action: .notImplemented("사용 가능한 라이브 스트림 URL 확보 후 구현 예정입니다.")
             ),
             Row(
                 title: "다운로드",
