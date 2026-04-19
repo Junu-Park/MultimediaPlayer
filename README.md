@@ -32,6 +32,8 @@ AUDIO_VOD_URL = https:$()/your-audio-vod-url
 - PIP (Picture in Picture)
 - AirPlay
 - 잠금화면/제어센터 연동 (MediaPlayer 프레임워크)
+- 오디오 인터럽션 처리 (전화, Siri, 알람, 다른 앱 오디오 재생 등)
+- 화면 종료 시 오디오 세션 해제로 다른 오디오 앱 자동 복귀 지원
 - 기기 방향 감지 기반 자동 가로 전환, 종료 시 세로 복귀 (CoreMotion + `requestGeometryUpdate` / iOS 15 fallback)
 
 ### 📻 라디오 플레이어
@@ -39,7 +41,8 @@ AUDIO_VOD_URL = https:$()/your-audio-vod-url
 - 라이브 오디오 HLS 재생 (LIVE 뱃지, seek 비활성화)
 - 백그라운드 재생
 - 잠금화면/제어센터 연동
-- 오디오 인터럽션 처리 (전화, 알림)
+- 오디오 인터럽션 처리 (전화, Siri, 알람, 다른 앱 오디오 재생 등)
+- 화면 종료 시 오디오 세션 해제로 다른 오디오 앱 자동 복귀 지원
 - 이어폰 분리 자동 일시정지
 - AirPlay
 
