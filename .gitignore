@@ -67,3 +67,4 @@ PLAN.md
 CLAUDE.md
 .claude/
 Secret.xcconfig
+.DS_Store

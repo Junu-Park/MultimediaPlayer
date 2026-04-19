@@ -2,13 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>AUDIO_VOD_URL</key>
+	<string>$(AUDIO_VOD_URL)</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
 	</array>
 	<key>VIDEO_VOD_URL</key>
 	<string>$(VIDEO_VOD_URL)</string>
-	<key>AUDIO_VOD_URL</key>
-	<string>$(AUDIO_VOD_URL)</string>
 </dict>
 </plist>
