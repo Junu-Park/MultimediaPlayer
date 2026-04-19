@@ -56,8 +56,6 @@ final class VideoPlayerViewController: UIViewController {
         playerLayer?.frame = view.bounds
     }
 
-    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .all }
-    override var shouldAutorotate: Bool { true }
     override var prefersStatusBarHidden: Bool { true }
 
     // MARK: - Player
@@ -282,7 +280,9 @@ final class VideoPlayerViewController: UIViewController {
         let msg = error?.localizedDescription ?? "재생 중 오류가 발생했습니다."
         let alert = UIAlertController(title: "재생 오류", message: msg, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "닫기", style: .cancel) { [weak self] _ in
-            self?.dismiss(animated: true)
+            AppDelegate.rotateToPortrait {
+                self?.dismiss(animated: false)
+            }
         })
         present(alert, animated: true)
     }
@@ -346,7 +346,9 @@ extension VideoPlayerViewController: PlayerControlViewDelegate {
 
     func controlViewDidTapClose(_ view: PlayerControlView) {
         player?.pause()
-        dismiss(animated: true)
+        AppDelegate.rotateToPortrait { [weak self] in
+            self?.dismiss(animated: false)
+        }
     }
 }
 

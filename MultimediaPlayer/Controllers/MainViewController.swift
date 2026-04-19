@@ -107,7 +107,9 @@ class MainViewController: UITableViewController {
 
         switch sections[indexPath.section].rows[indexPath.row].action {
         case .playVideo(let item):
-            present(VideoPlayerViewController(mediaItem: item), animated: true)
+            AppDelegate.rotateToLandscape { [weak self] in
+                self?.present(VideoPlayerViewController(mediaItem: item), animated: false)
+            }
         case .playAudio(let item):
             navigationController?.pushViewController(AudioPlayerViewController(mediaItem: item), animated: true)
         case .openDownloadList:
