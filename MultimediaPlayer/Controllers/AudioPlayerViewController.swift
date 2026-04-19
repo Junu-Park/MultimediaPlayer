@@ -1,24 +1,14 @@
 import UIKit
 import AVFoundation
 import AVKit
-import MediaPlayer
 import SnapKit
 
 final class AudioPlayerViewController: UIViewController {
 
     private let mediaItem: MediaItem
+    private let manager: PlayerManager
 
-    private var player: AVPlayer?
-    private var playerItem: AVPlayerItem?
-
-    private var timeObserverToken: Any?
-    private var statusObserver: NSKeyValueObservation?
-    private var durationObserver: NSKeyValueObservation?
-    private var timeControlObserver: NSKeyValueObservation?
-
-    private var isLive: Bool {
-        player?.currentItem?.duration == .indefinite
-    }
+    private var isLive: Bool { manager.isLive }
 
     // MARK: - UI
 
@@ -122,16 +112,14 @@ final class AudioPlayerViewController: UIViewController {
 
     init(mediaItem: MediaItem) {
         self.mediaItem = mediaItem
+        let cfg = UIImage.SymbolConfiguration(pointSize: 120, weight: .thin)
+        let artwork = UIImage(systemName: "music.note", withConfiguration: cfg)
+        self.manager = PlayerManager(mediaItem: mediaItem, artworkImage: artwork)
         super.init(nibName: nil, bundle: nil)
+        manager.delegate = self
     }
 
     required init?(coder: NSCoder) { fatalError() }
-
-    deinit {
-        removeObservers()
-        removeNotificationObservers()
-        clearNowPlaying()
-    }
 
     // MARK: - Lifecycle
 
@@ -141,14 +129,14 @@ final class AudioPlayerViewController: UIViewController {
         title = "라디오"
         setupLayout()
         setupActions()
-        setupPlayer()
-        setupNotificationObservers()
+        titleLabel.text = mediaItem.title
+        manager.play()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         if isMovingFromParent {
-            player?.pause()
+            manager.pause()
         }
     }
 
@@ -234,217 +222,9 @@ final class AudioPlayerViewController: UIViewController {
         seekSlider.addTarget(self, action: #selector(sliderTouchEnded), for: [.touchUpInside, .touchUpOutside])
     }
 
-    // MARK: - Player
+    // MARK: - UI Updates
 
-    private func setupPlayer() {
-        playerItem = AVPlayerItem(url: mediaItem.url)
-        player = AVPlayer(playerItem: playerItem)
-
-        setupObservers()
-        setupRemoteCommands()
-        titleLabel.text = mediaItem.title
-        player?.play()
-    }
-
-    private func setupObservers() {
-        guard let item = playerItem, let player = player else { return }
-
-        statusObserver = item.observe(\.status, options: [.new]) { [weak self] item, _ in
-            DispatchQueue.main.async { self?.handleStatus(item.status) }
-        }
-
-        durationObserver = item.observe(\.duration, options: [.new]) { [weak self] _, _ in
-            DispatchQueue.main.async { self?.updateLiveMode() }
-        }
-
-        timeControlObserver = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
-            DispatchQueue.main.async {
-                let isPlaying = player.timeControlStatus == .playing
-                self?.updatePlayPauseButton(isPlaying: isPlaying)
-                if isPlaying {
-                    try? AVAudioSession.sharedInstance().setActive(true)
-                } else {
-                    try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-                }
-            }
-        }
-
-        let interval = CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
-        timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
-            self?.updateProgress(time: time)
-            self?.updateNowPlayingTime(time: time)
-        }
-
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(playerItemDidFinish),
-            name: .AVPlayerItemDidPlayToEndTime,
-            object: item
-        )
-    }
-
-    private func removeObservers() {
-        statusObserver = nil
-        durationObserver = nil
-        timeControlObserver = nil
-        if let token = timeObserverToken {
-            player?.removeTimeObserver(token)
-            timeObserverToken = nil
-        }
-    }
-
-    // MARK: - Notification Observers
-
-    private func setupNotificationObservers() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleAudioInterruption),
-            name: AVAudioSession.interruptionNotification,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleRouteChange),
-            name: AVAudioSession.routeChangeNotification,
-            object: nil
-        )
-    }
-
-    private func removeNotificationObservers() {
-        NotificationCenter.default.removeObserver(self, name: AVAudioSession.interruptionNotification, object: nil)
-        NotificationCenter.default.removeObserver(self, name: AVAudioSession.routeChangeNotification, object: nil)
-        NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
-    }
-
-    @objc private func handleAudioInterruption(_ notification: Notification) {
-        guard let userInfo = notification.userInfo,
-              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
-              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
-
-        switch type {
-        case .began:
-            player?.pause()
-        case .ended:
-            let options = (userInfo[AVAudioSessionInterruptionOptionKey] as? UInt).map {
-                AVAudioSession.InterruptionOptions(rawValue: $0)
-            }
-            if options?.contains(.shouldResume) == true {
-                player?.play()
-            }
-        @unknown default:
-            break
-        }
-    }
-
-    @objc private func handleRouteChange(_ notification: Notification) {
-        guard let userInfo = notification.userInfo,
-              let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
-              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else { return }
-
-        if reason == .oldDeviceUnavailable {
-            player?.pause()
-        }
-    }
-
-    // MARK: - Remote Commands
-
-    private func setupRemoteCommands() {
-        let center = MPRemoteCommandCenter.shared()
-
-        center.playCommand.addTarget { [weak self] _ in
-            self?.player?.play()
-            return .success
-        }
-        center.pauseCommand.addTarget { [weak self] _ in
-            self?.player?.pause()
-            return .success
-        }
-        center.togglePlayPauseCommand.addTarget { [weak self] _ in
-            guard let self, let player = self.player else { return .commandFailed }
-            player.timeControlStatus == .playing ? player.pause() : player.play()
-            return .success
-        }
-        center.skipBackwardCommand.preferredIntervals = [15]
-        center.skipBackwardCommand.addTarget { [weak self] _ in
-            self?.skipBack()
-            return .success
-        }
-        center.skipForwardCommand.preferredIntervals = [15]
-        center.skipForwardCommand.addTarget { [weak self] _ in
-            self?.skipForward()
-            return .success
-        }
-        center.changePlaybackPositionCommand.addTarget { [weak self] event in
-            guard let self,
-                  let event = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
-            let target = CMTime(seconds: event.positionTime, preferredTimescale: 1)
-            self.player?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { _ in
-                self.player?.play()
-            }
-            return .success
-        }
-
-        updateNowPlayingInfo()
-    }
-
-    private func updateNowPlayingInfo() {
-        let rate = player?.rate ?? 0
-        var info: [String: Any] = [
-            MPMediaItemPropertyTitle: mediaItem.title,
-            MPNowPlayingInfoPropertyPlaybackRate: rate,
-            MPNowPlayingInfoPropertyDefaultPlaybackRate: 1.0,
-        ]
-
-        if let duration = player?.currentItem?.duration, duration.isNumeric {
-            info[MPMediaItemPropertyPlaybackDuration] = duration.seconds
-        }
-        if let currentTime = player?.currentTime(), currentTime.isNumeric {
-            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime.seconds
-        }
-
-        let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 300, height: 300)) { _ in
-            let cfg = UIImage.SymbolConfiguration(pointSize: 120, weight: .thin)
-            return UIImage(systemName: "music.note", withConfiguration: cfg) ?? UIImage()
-        }
-        info[MPMediaItemPropertyArtwork] = artwork
-
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
-    }
-
-    private func updateNowPlayingTime(time: CMTime) {
-        guard var info = MPNowPlayingInfoCenter.default().nowPlayingInfo else { return }
-        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = time.seconds
-        info[MPNowPlayingInfoPropertyPlaybackRate] = player?.rate ?? 0
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
-    }
-
-    private func clearNowPlaying() {
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
-        let center = MPRemoteCommandCenter.shared()
-        center.playCommand.removeTarget(nil)
-        center.pauseCommand.removeTarget(nil)
-        center.togglePlayPauseCommand.removeTarget(nil)
-        center.skipBackwardCommand.removeTarget(nil)
-        center.skipForwardCommand.removeTarget(nil)
-        center.changePlaybackPositionCommand.removeTarget(nil)
-    }
-
-    // MARK: - State Updates
-
-    private func handleStatus(_ status: AVPlayerItem.Status) {
-        switch status {
-        case .readyToPlay:
-            updateLiveMode()
-            updateNowPlayingInfo()
-        case .failed:
-            showError(playerItem?.error)
-        default:
-            break
-        }
-    }
-
-    private func updateLiveMode() {
-        let live = isLive
+    private func updateLiveMode(_ live: Bool) {
         seekSlider.isHidden = live
         currentTimeLabel.isHidden = live
         durationLabel.isHidden = live
@@ -454,10 +234,6 @@ final class AudioPlayerViewController: UIViewController {
         skipForwardButton.isEnabled = !live
         skipBackButton.alpha = live ? 0.4 : 1.0
         skipForwardButton.alpha = live ? 0.4 : 1.0
-
-        MPRemoteCommandCenter.shared().changePlaybackPositionCommand.isEnabled = !live
-        MPRemoteCommandCenter.shared().skipBackwardCommand.isEnabled = !live
-        MPRemoteCommandCenter.shared().skipForwardCommand.isEnabled = !live
     }
 
     private func updatePlayPauseButton(isPlaying: Bool) {
@@ -466,21 +242,13 @@ final class AudioPlayerViewController: UIViewController {
         playPauseButton.setImage(UIImage(systemName: name, withConfiguration: cfg), for: .normal)
     }
 
-    private func updateProgress(time: CMTime) {
-        guard !isLive,
-              let duration = player?.currentItem?.duration,
-              duration.isNumeric else { return }
+    private func updateProgress(time: CMTime, duration: CMTime) {
+        guard !isLive, duration.isNumeric else { return }
         totalDuration = duration.seconds
         guard !seekSlider.isTracking else { return }
         currentTimeLabel.text = formatTime(time.seconds)
         durationLabel.text = formatTime(totalDuration)
         seekSlider.value = totalDuration > 0 ? Float(time.seconds / totalDuration) : 0
-    }
-
-    @objc private func playerItemDidFinish() {
-        player?.seek(to: .zero)
-        updatePlayPauseButton(isPlaying: false)
-        updateNowPlayingInfo()
     }
 
     private func showError(_ error: Error?) {
@@ -494,46 +262,17 @@ final class AudioPlayerViewController: UIViewController {
 
     // MARK: - Button Actions
 
-    @objc private func playPauseTapped() {
-        guard let player = player else { return }
-        if player.timeControlStatus == .playing {
-            player.pause()
-        } else {
-            player.play()
-        }
-    }
-
-    @objc private func skipBackTapped() { skipBack() }
-    @objc private func skipForwardTapped() { skipForward() }
-
-    private func skipBack() {
-        guard let player = player else { return }
-        let target = CMTimeMaximum(
-            CMTimeSubtract(player.currentTime(), CMTime(seconds: 15, preferredTimescale: 1)),
-            .zero
-        )
-        player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-    }
-
-    private func skipForward() {
-        guard let player = player,
-              let duration = player.currentItem?.duration,
-              duration.isNumeric else { return }
-        let target = CMTimeMinimum(
-            CMTimeAdd(player.currentTime(), CMTime(seconds: 15, preferredTimescale: 1)),
-            duration
-        )
-        player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-    }
+    @objc private func playPauseTapped() { manager.togglePlayPause() }
+    @objc private func skipBackTapped() { manager.skipBackward() }
+    @objc private func skipForwardTapped() { manager.skipForward() }
 
     @objc private func speedChanged() {
         let speed = speeds[speedControl.selectedSegmentIndex]
-        player?.rate = speed
-        updateNowPlayingInfo()
+        manager.setRate(speed)
     }
 
     @objc private func sliderTouchBegan() {
-        player?.pause()
+        manager.pause()
     }
 
     @objc private func sliderValueChanged() {
@@ -541,11 +280,10 @@ final class AudioPlayerViewController: UIViewController {
     }
 
     @objc private func sliderTouchEnded() {
-        guard let duration = player?.currentItem?.duration, duration.isNumeric else { return }
-        let targetTime = CMTimeMultiplyByFloat64(duration, multiplier: Float64(seekSlider.value))
-        player?.seek(to: targetTime, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
-            self?.player?.play()
-        }
+        let duration = manager.duration
+        guard duration.isNumeric else { return }
+        let targetSeconds = duration.seconds * Double(seekSlider.value)
+        manager.seek(to: targetSeconds, resumePlay: true)
     }
 
     // MARK: - Helpers
@@ -557,5 +295,29 @@ final class AudioPlayerViewController: UIViewController {
         let m = (total % 3600) / 60
         let s = total % 60
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%02d:%02d", m, s)
+    }
+}
+
+// MARK: - PlayerManagerDelegate
+
+extension AudioPlayerViewController: PlayerManagerDelegate {
+    func playerManager(_ manager: PlayerManager, didUpdateIsPlaying isPlaying: Bool) {
+        updatePlayPauseButton(isPlaying: isPlaying)
+    }
+
+    func playerManager(_ manager: PlayerManager, didUpdateTime time: CMTime, duration: CMTime) {
+        updateProgress(time: time, duration: duration)
+    }
+
+    func playerManager(_ manager: PlayerManager, didUpdateLive isLive: Bool) {
+        updateLiveMode(isLive)
+    }
+
+    func playerManagerDidFinish(_ manager: PlayerManager) {
+        updatePlayPauseButton(isPlaying: false)
+    }
+
+    func playerManager(_ manager: PlayerManager, didFail error: Error?) {
+        showError(error)
     }
 }
