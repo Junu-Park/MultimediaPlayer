@@ -131,7 +131,6 @@ final class AudioPlayerViewController: UIViewController {
         removeObservers()
         removeNotificationObservers()
         clearNowPlaying()
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     // MARK: - Lifecycle
@@ -241,8 +240,6 @@ final class AudioPlayerViewController: UIViewController {
         playerItem = AVPlayerItem(url: mediaItem.url)
         player = AVPlayer(playerItem: playerItem)
 
-        try? AVAudioSession.sharedInstance().setActive(true)
-
         setupObservers()
         setupRemoteCommands()
         titleLabel.text = mediaItem.title
@@ -261,7 +258,15 @@ final class AudioPlayerViewController: UIViewController {
         }
 
         timeControlObserver = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
-            DispatchQueue.main.async { self?.updatePlayPauseButton(isPlaying: player.timeControlStatus == .playing) }
+            DispatchQueue.main.async {
+                let isPlaying = player.timeControlStatus == .playing
+                self?.updatePlayPauseButton(isPlaying: isPlaying)
+                if isPlaying {
+                    try? AVAudioSession.sharedInstance().setActive(true)
+                } else {
+                    try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+                }
+            }
         }
 
         let interval = CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC))

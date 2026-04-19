@@ -39,7 +39,6 @@ final class VideoPlayerViewController: UIViewController {
         removeObservers()
         NotificationCenter.default.removeObserver(self)
         clearNowPlaying()
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     // MARK: - Lifecycle
@@ -64,8 +63,6 @@ final class VideoPlayerViewController: UIViewController {
     private func setupPlayer() {
         playerItem = AVPlayerItem(url: mediaItem.url)
         player = AVPlayer(playerItem: playerItem)
-
-        try? AVAudioSession.sharedInstance().setActive(true)
 
         let layer = AVPlayerLayer(player: player)
         layer.videoGravity = .resizeAspect
@@ -92,8 +89,14 @@ final class VideoPlayerViewController: UIViewController {
 
         timeControlObserver = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
             DispatchQueue.main.async {
-                self?.controlView.update(isPlaying: player.timeControlStatus == .playing)
+                let isPlaying = player.timeControlStatus == .playing
+                self?.controlView.update(isPlaying: isPlaying)
                 self?.updateNowPlayingRate()
+                if isPlaying {
+                    try? AVAudioSession.sharedInstance().setActive(true)
+                } else {
+                    try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+                }
             }
         }
 
