@@ -39,6 +39,7 @@ final class VideoPlayerViewController: UIViewController {
         removeObservers()
         NotificationCenter.default.removeObserver(self)
         clearNowPlaying()
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     // MARK: - Lifecycle
@@ -63,6 +64,8 @@ final class VideoPlayerViewController: UIViewController {
     private func setupPlayer() {
         playerItem = AVPlayerItem(url: mediaItem.url)
         player = AVPlayer(playerItem: playerItem)
+
+        try? AVAudioSession.sharedInstance().setActive(true)
 
         let layer = AVPlayerLayer(player: player)
         layer.videoGravity = .resizeAspect
@@ -106,6 +109,33 @@ final class VideoPlayerViewController: UIViewController {
             name: .AVPlayerItemDidPlayToEndTime,
             object: item
         )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioInterruption),
+            name: AVAudioSession.interruptionNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleAudioInterruption(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+
+        switch type {
+        case .began:
+            player?.pause()
+        case .ended:
+            let options = (userInfo[AVAudioSessionInterruptionOptionKey] as? UInt).map {
+                AVAudioSession.InterruptionOptions(rawValue: $0)
+            }
+            if options?.contains(.shouldResume) == true {
+                player?.play()
+            }
+        @unknown default:
+            break
+        }
     }
 
     private func removeObservers() {
