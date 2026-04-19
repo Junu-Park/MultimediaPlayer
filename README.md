@@ -32,7 +32,7 @@ AUDIO_VOD_URL = https:$()/your-audio-vod-url
 - PIP (Picture in Picture)
 - AirPlay
 - 잠금화면/제어센터 연동 (MediaPlayer 프레임워크)
-- 가로/세로 회전 대응
+- 기기 방향 감지 기반 자동 가로 전환, 종료 시 세로 복귀 (CoreMotion + `requestGeometryUpdate` / iOS 15 fallback)
 
 ### 📻 라디오 플레이어
 - HLS 오디오 VOD 재생 (seek, 재생속도 조절: 0.5x ~ 2.0x)
@@ -67,6 +67,7 @@ AUDIO_VOD_URL = https:$()/your-audio-vod-url
 | PIP | AVPictureInPictureController |
 | AirPlay | AVRoutePickerView |
 | 알림 | UNUserNotificationCenter |
+| 기기 방향 감지 | CoreMotion (CMMotionManager) |
 
 ---
 
