@@ -59,6 +59,7 @@ AUDIO_VOD_URL = https:$()/your-audio-vod-url
 |------|-----------|
 | 언어 | Swift 5 |
 | 최소 버전 | iOS 15.0 |
+| 지원 기기 | iPhone, iPad |
 | UI | UIKit, SnapKit |
 | 아키텍처 | MVC |
 | 미디어 재생 | AVFoundation (AVPlayer, AVPlayerLayer) |
@@ -85,6 +86,32 @@ MultimediaPlayer/
 Secret.xcconfig           # URL 설정 (gitignore)
 Secret.xcconfig.example   # 설정 템플릿
 ```
+
+---
+
+## 🔧 트러블 슈팅
+
+### 1. 세로 잠금 상태에서 `UIDevice.current.orientation`이 실제 방향을 알려주지 않음
+- **문제**: 메인 화면이 세로 고정인 상태에서 기기를 가로로 들어도 `UIDevice.current.orientation`이 `.unknown` 또는 `.faceUp`만 반환해 실제 기기 방향을 판별할 수 없음.
+- **원인**: `UIDevice.orientation`은 앱이 해당 방향을 지원할 때만 값이 갱신됨. 세로 잠금이면 가로 방향은 반영되지 않음.
+- **해결**: `CMMotionManager`로 가속도계를 한 번 읽어 `x` 축 값으로 기울기를 직접 판단. VOD 진입 시점에만 센서를 켜서 배터리 영향 최소화.
+
+### 2. 가속도계 값 → 화면 방향 매핑 오류
+- **문제**: 기기를 왼쪽으로 기울이면 반대 방향(오른쪽)으로 회전.
+- **원인**: `UIDeviceOrientation`(가속도계)과 `UIInterfaceOrientation`(UI/status bar가 어느 방향을 향하는가)은 서로 반대 방향으로 정의되어 있으나, 같은 방향이라고 이해하고 매핑.
+- **해결**:
+  - 가속도계 `x > 0`(Portrait 기준 휴대폰이 왼쪽으로 기운 상태) → `.landscapeLeft`(Portrait 기준 오른쪽 면이 상단으로)
+  - 가속도계 `x <= 0`(Portrait 기준 휴대폰이 안 기울거나 오른쪽으로 기운 상태) → `.landscapeRight`(Portrait 기준 왼쪽 면이 상단으로)
+
+### 3. `requestGeometryUpdate` 호출 후 회전 완료 시점을 알 수 없음
+- **문제**: VOD 화면을 닫을 때 회전 애니메이션 없이 즉시 세로로 바뀌는 현상.
+- **원인**: `requestGeometryUpdate`는 회전을 요청만 하고 완료를 알리는 콜백이 없음. 시간을 어림잡아 기다리면 타이밍이 어긋남.
+- **해결**: `UIWindowScene.interfaceOrientation` 값을 짧은 간격(50ms)으로 반복 확인해 실제 방향이 목표에 도달한 뒤 다음 동작 실행. `AppDelegate.rotateToLandscape(completion:)` / `rotateToPortrait(completion:)`로 공용 함수 추출.
+
+### 4. Xcode 경고 — "All interface orientations must be supported unless the app requires full screen"
+- **문제**: iPhone과 iPad 모두 지원하는 Universal 설정 + 세로만 허용하는 `UISupportedInterfaceOrientations` 조합에서 경고 발생.
+- **원인**: iPad Multitasking(Split View / Slide Over / Stage Manager) 지원을 위해서는 iPad Orientation을 4방향 모두 허용하거나 `UIRequiresFullScreen = YES`로 Multitasking을 사용하지 않겠다고 선언해야 함.
+- **해결**: 현재 Multitasking 기능 미제공으로 설정, `UIRequiresFullScreen = YES`.
 
 ---
 
